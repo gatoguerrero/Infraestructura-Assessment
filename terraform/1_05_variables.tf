@@ -1,6 +1,6 @@
-###########################
+############################
 # Variables de configuración
-###########################
+############################
 
 variable "prefix" {
   description = "Prefijo para nombrar recursos"
