@@ -1,0 +1,60 @@
+# Parámetros que recibe este template desde el pipeline principal
+parameters:
+  - name: workingDirectory
+    type: string
+
+  - name: terraformVersion
+    type: string
+    default: "1.9.8"
+
+stages:
+  - stage: Terraform_Destroy
+    displayName: Terraform Destroy
+
+    dependsOn:
+      - Terraform_Apply
+
+    jobs:
+      - deployment: TerraformDestroy
+        displayName: Destroy Terraform Resources
+
+        # Environment con aprobación manual
+        environment: $(destroyEnvironment)
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+
+                # Instala Terraform en el agente
+                - task: TerraformInstaller@1
+                  displayName: Install Terraform
+                  inputs:
+                    terraformVersion: ${{ parameters.terraformVersion }}
+
+                # Inicializa Terraform para conectarse al mismo backend donde está el tfstate
+                - task: TerraformTaskV4@4
+                  displayName: Terraform Init
+                  inputs:
+                    provider: azurerm
+                    command: init
+                    workingDirectory: ${{ parameters.workingDirectory }}
+                    backendServiceArm: $(serviceConnection)
+                    backendAzureRmResourceGroupName: $(backendResourceGroup)
+                    backendAzureRmStorageAccountName: $(backendStorageAccount)
+                    backendAzureRmContainerName: $(backendContainer)
+                    backendAzureRmKey: $(backendStateFile)
+                    backendAzureRmUseEntraIdForAuthentication: true
+
+                # Ejecuta destroy
+                - task: TerraformTaskV4@4
+                  displayName: Terraform Destroy
+                  inputs:
+                    provider: azurerm
+                    command: destroy
+                    workingDirectory: ${{ parameters.workingDirectory }}
+                    environmentServiceNameAzureRM: $(serviceConnection)
+                  env:
+                    TF_VAR_azure_devops_pat: $(AZURE_DEVOPS_PAT)

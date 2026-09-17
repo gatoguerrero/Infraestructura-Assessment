@@ -1,0 +1,65 @@
+parameters:
+  - name: workingDirectory
+    type: string
+  - name: terraformVersion
+    type: string
+    default: "1.9.8"
+
+stages:
+  - stage: Terraform_Plan
+    displayName: Terraform Plan
+
+    dependsOn:
+      - Terraform_Init
+
+    jobs:
+      - job: TerraformPlan
+        displayName: Validate and Plan Terraform
+
+        steps:
+          - checkout: self
+
+          # 1. Instalar Terraform en este nuevo agente
+          - task: TerraformInstaller@1
+            displayName: Install Terraform
+            inputs:
+              terraformVersion: ${{ parameters.terraformVersion }}
+
+          # 2. ¡OBLIGATORIO! Volver a correr el init aquí para que descargue los providers (azurerm)
+          - task: TerraformTaskV4@4
+            displayName: Terraform Init (Download Providers)
+            inputs:
+              provider: azurerm
+              command: init
+              workingDirectory: ${{ parameters.workingDirectory }}
+              backendServiceArm: $(serviceConnection)
+              backendAzureRmResourceGroupName: $(backendResourceGroup)
+              backendAzureRmStorageAccountName: $(backendStorageAccount)
+              backendAzureRmContainerName: $(backendContainer)
+              backendAzureRmKey: $(backendStateFile)
+              backendAzureRmUseEntraIdForAuthentication: true
+
+          # 3. Ahora sí, validar
+          - task: TerraformTaskV4@4
+            displayName: Terraform Validate
+            inputs:
+              provider: azurerm
+              command: validate
+              workingDirectory: ${{ parameters.workingDirectory }}
+
+          # 4. Y ejecutar el plan
+          - task: TerraformTaskV4@4
+            displayName: Terraform Plan
+            inputs:
+              provider: azurerm
+              command: plan
+              environmentServiceNameAzureRM: $(serviceConnection)
+              workingDirectory: ${{ parameters.workingDirectory }}
+              commandOptions: '-out=tfplan'
+            env:
+              TF_VAR_azure_devops_pat: $(AZURE_DEVOPS_PAT)
+
+          # Publicar plan para el siguiente stage
+          - publish: ${{ parameters.workingDirectory }}/tfplan
+            artifact: terraform-plan
+            displayName: Publish Terraform Plan

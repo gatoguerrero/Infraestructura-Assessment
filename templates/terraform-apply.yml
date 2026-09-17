@@ -1,0 +1,124 @@
+# Parámetros que recibe este template desde el pipeline principal
+parameters:
+  # Carpeta donde está el código Terraform
+  - name: workingDirectory
+    type: string
+
+  # Versión de Terraform que usará el agente
+  - name: terraformVersion
+    type: string
+    default: "1.9.8"
+
+stages:
+  # Stage encargado de ejecutar terraform apply
+  - stage: Terraform_Apply
+    displayName: Terraform Apply
+
+    # Este stage depende de que el Plan haya terminado correctamente
+    # No se aplica nada si el plan falló
+    dependsOn:
+      - Terraform_Plan
+
+    jobs:
+      # Usamos deployment porque permite asociar un Environment de Azure DevOps
+      # Esto permite agregar aprobaciones manuales, validaciones, permisos, etc.
+      - deployment: TerraformApply
+        displayName: Apply Terraform
+
+        # Environment configurado en Azure DevOps
+        # Ejemplo: dev, qa, prod
+        environment: $(environment)
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # Descarga el código del repositorio
+                - checkout: self
+
+                # Instala Terraform en el agente nuevo
+                # Cada job corre en un agente limpio
+                - task: TerraformInstaller@1
+                  displayName: Install Terraform
+                  inputs:
+                    terraformVersion: ${{ parameters.terraformVersion }}
+
+                # Inicializa Terraform nuevamente
+                #
+                # IMPORTANTE:
+                # El agente del Plan y el agente del Apply son diferentes.
+                # Por eso debemos descargar otra vez los providers:
+                #
+                # - azurerm
+                # - dynatrace
+                #
+                # También conecta con el backend remoto de Azure Storage
+                # donde está guardado terraform.tfstate
+                - task: TerraformTaskV4@4
+                  displayName: Terraform Init
+
+                  inputs:
+                    # TerraformTask necesita saber el provider principal
+                    # En este caso el backend está en Azure
+                    provider: azurerm
+
+                    command: init
+
+                    workingDirectory: ${{ parameters.workingDirectory }}
+
+                    # Service Connection de Azure DevOps
+                    # Tiene acceso al Storage Account donde vive el state
+                    backendServiceArm: $(serviceConnection)
+
+                    # Datos del backend remoto Terraform
+                    backendAzureRmResourceGroupName: $(backendResourceGroup)
+                    backendAzureRmStorageAccountName: $(backendStorageAccount)
+                    backendAzureRmContainerName: $(backendContainer)
+                    backendAzureRmKey: $(backendStateFile)
+
+                    # Usa autenticación moderna Entra ID
+                    backendAzureRmUseEntraIdForAuthentication: true
+
+                # Descarga el artifact generado en el stage Terraform Plan
+                #
+                # En el Plan se creó:
+                #
+                # terraform plan -out=tfplan
+                #
+                # Ese archivo contiene exactamente qué se va a aplicar
+                - download: current
+                  artifact: terraform-plan
+                  displayName: Download Terraform Plan
+
+                # Ejecuta Terraform Apply usando el plan generado anteriormente
+                #
+                # NO hacemos:
+                #
+                # terraform apply
+                #
+                # porque eso recalcularía cambios.
+                #
+                # Usamos:
+                #
+                # terraform apply tfplan
+                #
+                # para aplicar exactamente lo aprobado en Plan
+                - task: TerraformTaskV4@4
+                  displayName: Terraform Apply
+
+                  inputs:
+                    provider: azurerm
+
+                    command: apply
+
+                    # Service Connection para autenticarse contra Azure
+                    environmentServiceNameAzureRM: $(serviceConnection)
+
+                    workingDirectory: ${{ parameters.workingDirectory }}
+
+                    # Ruta del plan descargado
+                    commandOptions: >
+                      $(Pipeline.Workspace)/terraform-plan/tfplan
+
+                  env:
+                    TF_VAR_azure_devops_pat: $(AZURE_DEVOPS_PAT)

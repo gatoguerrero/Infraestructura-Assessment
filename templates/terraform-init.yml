@@ -1,0 +1,34 @@
+parameters:
+  - name: workingDirectory
+    type: string
+  - name: terraformVersion
+    type: string
+    default: "1.9.8"
+
+stages:
+  - stage: Terraform_Init
+    displayName: Terraform Init
+
+    jobs:
+      - job: TerraformInit
+        displayName: Initialize Terraform
+
+        steps:
+          - checkout: self
+
+          - task: TerraformInstaller@1
+            displayName: Install Terraform
+            inputs:
+              terraformVersion: ${{ parameters.terraformVersion }}
+
+          - task: TerraformTaskV4@4
+            displayName: Terraform Init
+            inputs:
+              provider: "azurerm"
+              command: "init"
+              workingDirectory: ${{ parameters.workingDirectory }}
+              backendServiceArm: $(serviceConnection)
+              backendAzureRmResourceGroupName: $(backendResourceGroup)
+              backendAzureRmStorageAccountName: $(backendStorageAccount)
+              backendAzureRmContainerName: $(backendContainer)
+              backendAzureRmKey: $(backendStateFile)

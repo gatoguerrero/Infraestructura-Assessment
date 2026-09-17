@@ -1,0 +1,28 @@
+trigger:
+  branches:
+    include:
+      - main
+
+  paths:
+    include:
+      - terraform/**
+
+variables:
+  - group: vg-aks-liq
+
+stages:
+  - template: templates/terraform-init.yml
+    parameters:
+      workingDirectory: "terraform"
+
+  - template: templates/terraform-plan.yml
+    parameters:
+      workingDirectory: "terraform"
+
+  - template: templates/terraform-apply.yml
+    parameters:
+      workingDirectory: "terraform"
+
+  - template: templates/terraform-destroy.yml
+    parameters:
+      workingDirectory: "terraform"
