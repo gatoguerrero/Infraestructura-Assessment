@@ -51,5 +51,5 @@ variable "env" {
 variable "name_acr" {
   description = "nombre del acr"
   type        = string
-  default     = "acr-assessment-devops"
+  default     = "acrassessmentdevops"
 }
