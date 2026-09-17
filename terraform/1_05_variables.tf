@@ -35,7 +35,7 @@ variable "address-space-snet-ingress" {
 variable "node_count" {
   description = "Número de nodos del pool por defecto"
   type        = number
-  default     = 2
+  default     = 1
 }
 variable "vm_size" {
   description = "Tamaño de VM de los nodos"
