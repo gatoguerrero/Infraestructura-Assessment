@@ -26,7 +26,7 @@ stages:
         displayName: Apply Terraform
 
         # Environment configurado en Azure DevOps
-        # Ejemplo: dev, qa, prod
+        # Para aprobar el despliegue
         environment: $(environment)
 
         strategy:
@@ -43,16 +43,7 @@ stages:
                   inputs:
                     terraformVersion: ${{ parameters.terraformVersion }}
 
-                # Inicializa Terraform nuevamente
-                #
-                # IMPORTANTE:
-                # El agente del Plan y el agente del Apply son diferentes.
-                # Por eso debemos descargar otra vez los providers:
-                #
-                # - azurerm
-                # - dynatrace
-                #
-                # También conecta con el backend remoto de Azure Storage
+                # conecta con el backend remoto de Azure Storage
                 # donde está guardado terraform.tfstate
                 - task: TerraformTaskV4@4
                   displayName: Terraform Init
