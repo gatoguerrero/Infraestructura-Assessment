@@ -33,8 +33,8 @@ resource "helm_release" "ingress_nginx" {
         service = {
           type = "LoadBalancer"
           annotations = {
-            "service.beta.kubernetes.io/azure-load-balancer-internal"                  = "true"
-            "service.beta.kubernetes.io/azure-load-balancer-internal-subnet"           = azurerm_subnet.snet-ingress.name
+            #"service.beta.kubernetes.io/azure-load-balancer-internal"                  = "true"
+            #"service.beta.kubernetes.io/azure-load-balancer-internal-subnet"           = azurerm_subnet.snet-ingress.name
             "service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path" = "/healthz"
           }
         }
